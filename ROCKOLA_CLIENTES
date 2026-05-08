@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Buscador Rockola - Cliente</title>
+    <style>
+        body { font-family: 'Arial', sans-serif; background: #121212; color: white; padding: 20px; }
+        .search-box { display: flex; gap: 10px; margin-bottom: 20px; }
+        input { flex: 1; padding: 12px; border-radius: 8px; border: none; font-size: 16px; outline: none; }
+        button { background: #ff0000; color: white; border: none; padding: 12px 20px; border-radius: 8px; font-weight: bold; cursor: pointer; }
+        .result-item { display: flex; align-items: center; background: #1e1e1e; margin-bottom: 10px; padding: 10px; border-radius: 8px; border: 1px solid #333; }
+        .result-item img { width: 90px; height: 60px; border-radius: 4px; margin-right: 15px; }
+        .result-info { flex: 1; }
+        .result-title { font-size: 14px; font-weight: bold; margin-bottom: 5px; }
+        .add-btn { background: #28a745; font-size: 12px; padding: 8px 12px; }
+        #status { text-align: center; color: #aaa; margin-top: 10px; }
+    </style>
+</head>
+<body>
+
+    <h2 style="text-align: center;">🎸 Pide tu Música</h2>
+    
+    <div class="search-box">
+        <input type="text" id="query" placeholder="Nombre de canción o artista...">
+        <button onclick="buscarVideos()">Buscar</button>
+    </div>
+
+    <div id="listaResultados"></div>
+    <div id="status"></div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
+        import { getDatabase, ref, push } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-database.js";
+
+        // CONFIGURACIÓN DE TU PROYECTO
+        const firebaseConfig = {
+            apiKey: "AIzaSyCBANjK6Nj4ldoS-SWPqxoQfF8TtfwUDs4",
+            authDomain: "mirockola-92cee.firebaseapp.com",
+            projectId: "mirockola-92cee",
+            databaseURL: "https://mirockola-92cee-default-rtdb.firebaseio.com",
+            appId: "1:575995010626:web:5389b2383309917ec057db"
+        };
+        
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+
+        // TU API KEY DE YOUTUBE
+        const YT_API_KEY = "AIzaSyCGrmBSqXRsFSO6q66rH23HFv7fNxjXFpQ";
+
+        window.buscarVideos = async function() {
+            const q = document.getElementById('query').value;
+            if(!q) return;
+
+            document.getElementById('status').innerText = "Buscando...";
+            const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=5&q=${encodeURIComponent(q)}&type=video&key=${YT_API_KEY}`;
+            
+            try {
+                const response = await fetch(url);
+                const data = await response.json();
+                mostrarResultados(data.items);
+                document.getElementById('status').innerText = "";
+            } catch (error) {
+                document.getElementById('status').innerText = "Error en la búsqueda.";
+                console.error(error);
+            }
+        }
+
+        function mostrarResultados(items) {
+            const contenedor = document.getElementById('listaResultados');
+            contenedor.innerHTML = "";
+
+            if(!items || items.length === 0) {
+                contenedor.innerHTML = "<p>No se encontraron videos.</p>";
+                return;
+            }
+
+            items.forEach(item => {
+                const videoId = item.id.videoId;
+                const titulo = item.snippet.title.replace(/'/g, "");
+                const thumb = item.snippet.thumbnails.default.url;
+
+                const html = `
+                    <div class="result-item">
+                        <img src="${thumb}">
+                        <div class="result-info">
+                            <div class="result-title">${titulo}</div>
+                            <button class="add-btn" onclick="pedir('${videoId}', '${titulo}')">Añadir a la Cola</button>
+                        </div>
+                    </div>
+                `;
+                contenedor.innerHTML += html;
+            });
+        }
+
+        window.pedir = function(id, titulo) {
+            push(ref(db, 'cola'), {
+                videoId: id,
+                titulo: titulo,
+                timestamp: Date.now()
+            });
+            alert("¡Añadida a la cola: " + titulo + "!");
+            document.getElementById('listaResultados').innerHTML = "";
+            document.getElementById('query').value = "";
+        }
+    </script>
+</body>
+</html>
